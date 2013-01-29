@@ -93,4 +93,7 @@ LP_ENABLE_TIME=0
 # feature to your specific terminal.
 LP_ENABLE_TITLE=0
 
+# Do you want to activate the internet connection verification feature ?
+LP_ENABLE_IC=1
+
 # vim: set et sts=4 sw=4 tw=120 ft=sh:

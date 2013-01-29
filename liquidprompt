@@ -220,6 +220,13 @@ _lp_source_config()
     LP_MARK_UNTRACKED=${LP_MARK_UNTRACKED:-"*"}
     LP_MARK_STASH=${LP_MARK_STASH:-"+"}
 
+    # Added to support the connection checking functionnality
+    LP_IC_OK=${LP_IC_OK:-"(|)"}
+    LP_IC_NOK=${LP_IC_NOK:-"(¦)"}
+    LP_IC_OK_COLOR=${LP_IC_COLOR_OK:-$GREEN}
+    LP_IC_NOK_COLOR=${LP_IC_COLOR_NOK:-$RED}
+    #
+
     LP_COLOR_PATH=${LP_COLOR_PATH:-$BOLD_WHITE}
     LP_COLOR_PATH_ROOT=${LP_COLOR_PATH_ROOT:-$BOLD_YELLOW}
     LP_COLOR_PROXY=${LP_COLOR_PROXY:-$BOLD_BLUE}
@@ -398,6 +405,23 @@ _lp_proxy()
 
     if [[ ! -z "$http_proxy" ]] ; then
         echo -ne $LP_MARK_PROXY
+    fi
+}
+
+# Checking if the internet connection is up
+# We use ping -c1 to check if we can reach
+# the google website
+# Improvements can be added to manage different
+# locales of google for latency aspects or
+# if people find faster command than ping :)
+_lp_internet_connection()
+{
+    [[ "$LP_ENABLE_IC" != 1 ]] && return
+        ping -c1 google.fr > /dev/null 2>&1
+    if [ "$?" != 0 ]; then
+  	echo -ne ${LP_IC_NOK_COLOR}${LP_IC_NOK}${NO_COL}
+    else
+	echo -ne ${LP_IC_OK_COLOR}${LP_IC_OK}${NO_COL}
     fi
 }
 
@@ -1161,7 +1185,7 @@ _lp_set_prompt()
     LP_LOAD=$(_lp_sr "$(_lp_load_color)")
     LP_BATT=$(_lp_sr "$(_lp_battery_color)")
     LP_TIME=$(_lp_sr "$(_lp_time)")
-
+    LP_IC=$(_lp_sr "$(_lp_internet_connection)")
     # in main prompt: no space
     LP_USER=$(_lp_user)
     # LP_HOST is a global set at load time
@@ -1191,7 +1215,7 @@ _lp_set_prompt()
 
     if [[ -z $LP_PS1 ]] ; then
         # add title escape time, jobs, load and battery
-        PS1="${LP_PS1_PREFIX}${LP_TIME}${LP_BATT}${LP_LOAD}${LP_JOBS}"
+        PS1="${LP_PS1_PREFIX}${LP_TIME}${LP_BATT}${LP_LOAD}${LP_JOBS}${LP_IC}"
         # add user, host and permissions colon
         PS1="${PS1}[${LP_USER}${LP_HOST}${LP_PERM}"
 
