@@ -224,8 +224,8 @@ _lp_source_config()
     LP_MARK_STASH=${LP_MARK_STASH:-"+"}
 
     # Added to support the connection checking functionnality
-    LP_IC_OK=${LP_IC_OK:-"(|)"}
-    LP_IC_NOK=${LP_IC_NOK:-"(¦)"}
+    LP_IC_OK=${LP_IC_OK:-"|"}
+    LP_IC_NOK=${LP_IC_NOK:-"¦"}
     LP_IC_OK_COLOR=${LP_IC_COLOR_OK:-$GREEN}
     LP_IC_NOK_COLOR=${LP_IC_COLOR_NOK:-$RED}
     #
