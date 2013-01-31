@@ -302,12 +302,7 @@ unset _lp_source_config
 [[ "$LP_ENABLE_SVN"  = 1 ]] && { command -v svn  >/dev/null || LP_ENABLE_SVN=0  ; }
 [[ "$LP_ENABLE_FOSSIL"  = 1 ]] && { command -v fossil  >/dev/null || LP_ENABLE_FOSSIL=0  ; }
 [[ "$LP_ENABLE_HG"   = 1 ]] && { command -v hg   >/dev/null || LP_ENABLE_HG=0   ; }
-<<<<<<< HEAD
 [[ "$LP_ENABLE_BZR"  = 1 ]] && { command -v bzr > /dev/null || LP_ENABLE_BZR=0  ; }
-[[ "$LP_ENABLE_BATT" = 1 ]] && { command -v acpi >/dev/null || LP_ENABLE_BATT=0 ; }
-=======
->>>>>>> Adding Mac OSX support for battery information
-
 # in order for the Battery hook on Mac OSX platforms to work ...
 case "$LP_OS" in
     Linux|FreeBSD|SunOS)
