@@ -302,9 +302,20 @@ unset _lp_source_config
 [[ "$LP_ENABLE_SVN"  = 1 ]] && { command -v svn  >/dev/null || LP_ENABLE_SVN=0  ; }
 [[ "$LP_ENABLE_FOSSIL"  = 1 ]] && { command -v fossil  >/dev/null || LP_ENABLE_FOSSIL=0  ; }
 [[ "$LP_ENABLE_HG"   = 1 ]] && { command -v hg   >/dev/null || LP_ENABLE_HG=0   ; }
+<<<<<<< HEAD
 [[ "$LP_ENABLE_BZR"  = 1 ]] && { command -v bzr > /dev/null || LP_ENABLE_BZR=0  ; }
 [[ "$LP_ENABLE_BATT" = 1 ]] && { command -v acpi >/dev/null || LP_ENABLE_BATT=0 ; }
+=======
+>>>>>>> Adding Mac OSX support for battery information
 
+# in order for the Battery hook on Mac OSX platforms to work ...
+case "$LP_OS" in
+    Linux|FreeBSD|SunOS)
+        [[ "$LP_ENABLE_BATT" = 1 ]] && { command -v acpi >/dev/null || LP_ENABLE_BATT=0 ; } 
+        ;;
+    *)
+        ;;
+esac
 
 
 ###############
@@ -939,41 +950,101 @@ _lp_bzr_branch_color()
 _lp_battery()
 {
     [[ "$LP_ENABLE_BATT" != 1 ]] && return
-    local acpi
-    acpi="$(acpi --battery 2>/dev/null)"
-    # Extract the battery load value in percent
-    # First, remove the beginning of the line...
-    local bat="${acpi#Battery *, }"
-    bat="${bat%%%*}" # remove everything starting at '%'
+    
+    case "$(uname)" in
+        Linux|FreeBSD|SunOS)    
+            local acpi
+            acpi="$(acpi --battery 2>/dev/null)"
+            # Extract the battery load value in percent
+            # First, remove the beginning of the line...
+            local bat="${acpi#Battery *, }"
+            bat="${bat%%%*}" # remove everything starting at '%'
 
-    if [[ -z "${bat}" ]] ; then
-        # not battery level found
-        return 4
+            if [[ -z "${bat}" ]] ; then
+                # not battery level found
+                return 4
 
-    # discharging
-    elif [[ "$acpi" == *"Discharging"* ]] ; then
-        if [[ ${bat} -le $LP_BATTERY_THRESHOLD ]] ; then
-            # under threshold
-            echo -n "${bat}"
-            return 0
-        else
-            # above threshold
-            echo -n "${bat}"
-            return 1
+            # discharging
+            elif [[ "$acpi" == *"Discharging"* ]] ; then
+                if [[ ${bat} -le $LP_BATTERY_THRESHOLD ]] ; then
+                    # under threshold
+                    echo -n "${bat}"
+                    return 0
+                else
+                    # above threshold
+                    echo -n "${bat}"
+                    return 1
+                fi
+
+            # charging
+            else
+                if [[ ${bat} -le $LP_BATTERY_THRESHOLD ]] ; then
+                # under threshold
+                echo -n "${bat}"
+                return 2
+            else
+                # above threshold
+                echo -n "${bat}"
+                return 3
+            fi
         fi
+        ;;
+        Darwin)
+            # Getting the battery load value
+            # This hook is taken from the battery.sh script from richo at https://github.com/richo/battery
+            output=$"$(ioreg -c AppleSmartBattery -w0 | grep -o '"[^"]*" = [^ ]*' | sed -e 's/"//g' -e 's/ //g')"
+	     for line in $output ; do
+		key=${line/=*/}; value=${line/*=/}
+            	case $key in
+                    "MaxCapacity")
+                        export maxcap=$value;;
+                    "CurrentCapacity")
+                        export curcap=$value;;
+                    "ExternalConnected")
+                        if [[ "$value" = "Yes" ]]; then
+                            export chargestatus=1
+                        else
+                            export chargestatus=0
+                        fi
+                        ;;
+                esac
+                if [[ -n "$maxcap" && -n $curcap ]]; then
+                    export bat=$(echo "100 * $curcap / $maxcap" | bc)
+                    break
+                fi
+            done
+	    unset maxcap
+	    unset curcap
+            # discharging
+            if [[ "$chargestatus" -eq "0" ]]; then
+                if [[ ${bat} -le $LP_BATTERY_THRESHOLD ]] ; then
+                    # under threshold
+                    echo -n "${bat}"
+		    unset chargestatus
+                    return 0
+                else
+                    # above threshold
+                    echo -n "${bat}"
+		    unset chargestatus
+                    return 1
+                fi
 
-    # charging
-    else
-        if [[ ${bat} -le $LP_BATTERY_THRESHOLD ]] ; then
-            # under threshold
-            echo -n "${bat}"
-            return 2
-        else
-            # above threshold
-            echo -n "${bat}"
-            return 3
-        fi
-    fi
+            # charging
+            else
+                if [[ ${bat} -le $LP_BATTERY_THRESHOLD ]] ; then
+                    # under threshold
+                    echo -n "${bat}"
+		    unset chargestatus
+                    return 2
+                else
+                    # above threshold
+                    echo -n "${bat}"
+		    unset chargestatus
+                    return 3
+                fi
+            fi
+        ;;
+   esac
 }
 
 # Compute a gradient of background/foreground colors depending on the battery status
