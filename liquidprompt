@@ -233,6 +233,13 @@ _lp_source_config()
     LP_MARK_BRACKET_OPEN=${LP_MARK_BRACKET_OPEN:-"["}
     LP_MARK_BRACKET_CLOSE=${LP_MARK_BRACKET_CLOSE:-"]"}
 
+    # Added to support the connection checking functionnality
+    LP_IC_OK=${LP_IC_OK:-"|"}
+    LP_IC_NOK=${LP_IC_NOK:-"¦"}
+    LP_IC_OK_COLOR=${LP_IC_COLOR_OK:-$GREEN}
+    LP_IC_NOK_COLOR=${LP_IC_COLOR_NOK:-$RED}
+    #
+
     LP_COLOR_PATH=${LP_COLOR_PATH:-$BOLD_WHITE}
     LP_COLOR_PATH_ROOT=${LP_COLOR_PATH_ROOT:-$BOLD_YELLOW}
     LP_COLOR_PROXY=${LP_COLOR_PROXY:-$BOLD_BLUE}
@@ -307,8 +314,14 @@ unset _lp_source_config
 [[ "$LP_ENABLE_FOSSIL"  = 1 ]] && { command -v fossil  >/dev/null || LP_ENABLE_FOSSIL=0  ; }
 [[ "$LP_ENABLE_HG"   = 1 ]] && { command -v hg   >/dev/null || LP_ENABLE_HG=0   ; }
 [[ "$LP_ENABLE_BZR"  = 1 ]] && { command -v bzr > /dev/null || LP_ENABLE_BZR=0  ; }
-[[ "$LP_ENABLE_BATT" = 1 ]] && { command -v acpi >/dev/null || LP_ENABLE_BATT=0 ; }
-
+# in order for the Battery hook on Mac OSX platforms to work ...
+case "$LP_OS" in
+    Linux|FreeBSD|SunOS)
+        [[ "$LP_ENABLE_BATT" = 1 ]] && { command -v acpi >/dev/null || LP_ENABLE_BATT=0 ; } 
+        ;;
+    *)
+        ;;
+esac
 
 
 ###############
@@ -419,6 +432,23 @@ _lp_proxy()
 
     if [[ ! -z "$http_proxy" ]] ; then
         echo -ne "$LP_COLOR_PROXY$LP_MARK_PROXY$NO_COL"
+    fi
+}
+
+# Checking if the internet connection is up
+# We use ping -c1 to check if we can reach
+# the google website
+# Improvements can be added to manage different
+# locales of google for latency aspects or
+# if people find faster command than ping :)
+_lp_internet_connection()
+{
+    [[ "$LP_ENABLE_IC" != 1 ]] && return
+        ping -c1 google.fr > /dev/null 2>&1
+    if [ "$?" != 0 ]; then
+  	echo -ne ${LP_IC_NOK_COLOR}${LP_IC_NOK}${NO_COL}
+    else
+	echo -ne ${LP_IC_OK_COLOR}${LP_IC_OK}${NO_COL}
     fi
 }
 
@@ -970,41 +1000,85 @@ _lp_bzr_branch_color()
 _lp_battery()
 {
     [[ "$LP_ENABLE_BATT" != 1 ]] && return
-    local acpi
-    acpi="$(acpi --battery 2>/dev/null)"
-    # Extract the battery load value in percent
-    # First, remove the beginning of the line...
-    local bat="${acpi#Battery *, }"
-    bat="${bat%%%*}" # remove everything starting at '%'
+    
+    case "$(uname)" in
+        Linux|FreeBSD|SunOS)    
+            local acpi
+            acpi="$(acpi --battery 2>/dev/null)"
+            # Extract the battery load value in percent
+            # First, remove the beginning of the line...
+            local bat="${acpi#Battery *, }"
+            bat="${bat%%%*}" # remove everything starting at '%'
 
-    if [[ -z "${bat}" ]] ; then
-        # not battery level found
-        return 4
+            if [[ -z "${bat}" ]] ; then
+                # not battery level found
+                return 4
 
-    # discharging
-    elif [[ "$acpi" == *"Discharging"* ]] ; then
-        if [[ ${bat} -le $LP_BATTERY_THRESHOLD ]] ; then
-            # under threshold
-            echo -n "${bat}"
-            return 0
-        else
-            # above threshold
-            echo -n "${bat}"
-            return 1
+            # discharging
+            elif [[ "$acpi" == *"Discharging"* ]] ; then
+                if [[ ${bat} -le $LP_BATTERY_THRESHOLD ]] ; then
+                    # under threshold
+                    echo -n "${bat}"
+                    return 0
+                else
+                    # above threshold
+                    echo -n "${bat}"
+                    return 1
+                fi
+
+            # charging
+            else
+                if [[ ${bat} -le $LP_BATTERY_THRESHOLD ]] ; then
+                # under threshold
+                echo -n "${bat}"
+                return 2
+            else
+                # above threshold
+                echo -n "${bat}"
+                return 3
+            fi
         fi
+        ;;
+        Darwin)
+          local battery
+          battery="$(pmset -g batt | grep Internal 2>/dev/null)"
+          # Extract the battery load value in percent
+          # First, remove the beginning of the line...
+          local bat="${battery#\ -InternalBattery-0	}"
 
-    # charging
-    else
-        if [[ ${bat} -le $LP_BATTERY_THRESHOLD ]] ; then
-            # under threshold
-            echo -n "${bat}"
-            return 2
-        else
-            # above threshold
-            echo -n "${bat}"
-            return 3
-        fi
-    fi
+          # remove everything starting at '%'
+          bat="${bat%%%*}" 
+
+          if [[ -z "${bat}" ]] ; then
+              # not battery level found
+              return 4
+
+          # discharging
+          elif [[ "$battery" == *"discharging"* ]] ; then
+              if [[ ${bat} -le $LP_BATTERY_THRESHOLD ]] ; then
+                  # under threshold
+                  echo -n "${bat}"
+                  return 0
+              else
+                  # above threshold
+                  echo -n "${bat}"
+                  return 1
+              fi
+
+          # charging
+          else
+              if [[ ${bat} -le $LP_BATTERY_THRESHOLD ]] ; then
+                  # under threshold
+                  echo -n "${bat}"
+                  return 2
+              else
+                  # above threshold
+                  echo -n "${bat}"
+                  return 3
+              fi
+          fi
+        ;;
+   esac
 }
 
 # Compute a gradient of background/foreground colors depending on the battery status
@@ -1266,7 +1340,7 @@ _lp_set_prompt()
     LP_LOAD=$(_lp_sr "$(_lp_load_color)")
     LP_BATT=$(_lp_sr "$(_lp_battery_color)")
     LP_TIME=$(_lp_sr "$(_lp_time)")
-
+    LP_IC=$(_lp_sr "$(_lp_internet_connection)")
     # in main prompt: no space
     if [[ ! -z "$(_lp_in_multiplexer)" ]] ; then
         LP_MARK_BRACKET_OPEN="${LP_COLOR_IN_MULTIPLEXER}${LP_MARK_BRACKET_OPEN}${NO_COL}"
@@ -1336,7 +1410,7 @@ _lp_set_prompt()
 
     if [[ -z $LP_PS1 ]] ; then
         # add title escape time, jobs, load and battery
-        PS1="${LP_PS1_PREFIX}${LP_TIME}${LP_BATT}${LP_LOAD}${LP_JOBS}"
+        PS1="${LP_PS1_PREFIX}${LP_TIME}${LP_BATT}${LP_LOAD}${LP_JOBS}${LP_IC}"
         # add user, host and permissions colon
         PS1="${PS1}${LP_MARK_BRACKET_OPEN}${LP_USER}${LP_HOST}${LP_PERM}"
 

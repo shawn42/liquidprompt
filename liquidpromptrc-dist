@@ -107,4 +107,7 @@ LP_ENABLE_SSH_COLORS=0
 # will be disabled
 LP_DISABLED_VCS_PATH=""
 
+# Do you want to activate the internet connection verification feature ?
+LP_ENABLE_IC=1
+
 # vim: set et sts=4 sw=4 tw=120 ft=sh:
